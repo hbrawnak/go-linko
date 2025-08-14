@@ -1,4 +1,4 @@
-module github.com/hbrawnak/url-shortener
+module github.com/hbrawnak/go-linko
 
 go 1.23.1
 
