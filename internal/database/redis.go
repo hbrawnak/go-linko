@@ -1,0 +1,66 @@
+package database
+
+import (
+	"context"
+	"github.com/redis/go-redis/v9"
+	"log"
+	"os"
+	"time"
+)
+
+type RedisClient struct {
+	client *redis.Client
+}
+
+var RedisRetryCount int64
+
+const dbTimeout = time.Second * 3
+
+func ConnectToRedis() *RedisClient {
+	redisURL := os.Getenv("REDIS_DSN")
+	var client *redis.Client
+
+	options, err := redis.ParseURL(redisURL)
+	if err != nil {
+		log.Fatalf("Unable to parse Redis URL: %s", err)
+	}
+
+	for {
+		client = redis.NewClient(options)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		err := client.Ping(ctx).Err()
+		if err != nil {
+			log.Println("Failed to connect to Redis, retrying...", err)
+			RedisRetryCount++
+		} else {
+			log.Println("Redis connected successfully!")
+			return &RedisClient{client: client}
+		}
+
+		if RedisRetryCount > 10 {
+			log.Fatalf("Could not connect to Redis after %d attempts: %v", RedisRetryCount, err)
+		}
+
+		log.Println("Backing off for 2 seconds")
+		time.Sleep(2 * time.Second)
+		continue
+	}
+}
+
+func (r *RedisClient) Get(key string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	log.Println("Getting cache")
+	return r.client.Get(ctx, key).Result()
+}
+
+func (r *RedisClient) Set(key string, value string, ttl time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	log.Println("Setting cache")
+	return r.client.Set(ctx, key, value, ttl).Err()
+}
