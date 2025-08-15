@@ -6,6 +6,7 @@ import (
 	"github.com/hbrawnak/go-linko/internal/data"
 	"github.com/hbrawnak/go-linko/internal/database"
 	"github.com/hbrawnak/go-linko/internal/service"
+	"github.com/hbrawnak/go-linko/internal/utils"
 	"log"
 	"net/http"
 
@@ -17,43 +18,47 @@ import (
 const port = "8080"
 
 type Config struct {
-	DB      *sql.DB
-	Models  data.Models
-	Redis   *database.RedisClient
-	Service service.Service
+	DB       *sql.DB
+	Service  *service.Service
+	Response utils.Response
 }
 
-func main() {
-	log.Printf("URL shortener service on port %s\n", port)
-
+func NewConfig() *Config {
 	db := database.ConnectToDB()
 	if db == nil {
 		log.Panic("Failed to connect to database")
 	}
 
-	connectToRedis := database.ConnectToRedis()
-	if connectToRedis == nil {
-		log.Panic("Failed to connect to connectToRedis")
+	redisClient := database.ConnectToRedis()
+	if redisClient == nil {
+		log.Panic("Failed to connect to Redis")
 	}
 
-	app := &Config{
-		DB:     db,
-		Models: data.New(db),
-		Redis:  connectToRedis,
-		Service: service.Service{
-			Models: data.New(db),
-			Redis:  *connectToRedis,
-		},
+	models := data.New(db)
+
+	svc := &service.Service{
+		Models: models,
+		Redis:  *redisClient,
 	}
 
+	return &Config{
+		DB:       db,
+		Service:  svc,
+		Response: utils.Response{},
+	}
+}
+
+func main() {
+	log.Printf("URL shortener service on port %s\n", port)
+
+	app := NewConfig()
 	svr := http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
 		Handler: app.routes(),
 	}
 
 	// Starting server
-	err := svr.ListenAndServe()
-	if err != nil {
+	if err := svr.ListenAndServe(); err != nil {
 		log.Panic(err)
 	}
 }
