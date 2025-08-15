@@ -50,3 +50,21 @@ func (u *URL) Insert(url URL) (int, error) {
 
 	return newID, nil
 }
+
+func (u *URL) GetOne(code string) (*URL, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	query := "select id, short_code, original_url, created_at, updated_at from urls where short_code = $1"
+
+	var url URL
+
+	row := db.QueryRowContext(ctx, query, code)
+	err := row.Scan(&url.ID, &url.ShortCode, &url.OriginalURL, &url.CreatedAt, &url.UpdatedAt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &url, nil
+}
