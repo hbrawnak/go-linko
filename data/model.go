@@ -3,6 +3,7 @@ package data
 import (
 	"context"
 	"database/sql"
+	"log"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type URL struct {
 	ID          int       `json:"id"`
 	ShortCode   string    `json:"short_code"`
 	OriginalURL string    `json:"original_url"`
+	HitCount    int64     `json:"hit_count"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -67,4 +69,26 @@ func (u *URL) GetOne(code string) (*URL, error) {
 	}
 
 	return &url, nil
+}
+
+func (u *URL) IncrementHitCount(c string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	log.Printf("Increment hit count %s\n\n", c)
+
+	query := `
+		UPDATE urls
+		SET hit_count = hit_count + 1, updated_at = NOW()
+		WHERE short_code = $1
+	`
+
+	_, err := db.ExecContext(ctx, query, c)
+
+	if err != nil {
+		log.Printf("Error increment hit count for %s. %s\n\n", c, err)
+		return err
+	}
+
+	return nil
 }
