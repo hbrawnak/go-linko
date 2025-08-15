@@ -6,10 +6,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/hbrawnak/go-linko/internal/data"
 	"github.com/hbrawnak/go-linko/internal/service"
-	"log"
 	"net/http"
 	"net/url"
-	"time"
+	"os"
 )
 
 type ShortenRequest struct {
@@ -26,6 +25,7 @@ func (app *Config) HandleMain(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
+	var baseUrl = os.Getenv("BASE_URL")
 	var req ShortenRequest
 
 	if err := app.readJSON(w, r, &req); err != nil {
@@ -44,11 +44,11 @@ func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shortCode, err := service.GenerateShotCode(7)
+	code, err := service.GenerateShotCode(7)
 
 	// 1. save data in db
 	u := data.URL{
-		ShortCode:   shortCode,
+		ShortCode:   code,
 		OriginalURL: req.URL,
 	}
 
@@ -58,8 +58,12 @@ func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// storing cache in background
+	app.Service.StoreInRedisCacheBG(u.ShortCode, u.OriginalURL)
+
 	shortUrlResp := map[string]string{
-		"short_url": fmt.Sprintf("http://localhost:8080/%s", shortCode),
+		"short_url": fmt.Sprintf("%s/%s", baseUrl, u.ShortCode),
+		"code":      u.ShortCode,
 	}
 
 	// 2 return response
@@ -92,33 +96,24 @@ func (app *Config) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if originalUrl, err := app.Redis.Get(code); err == nil {
+		// Update hit count
+		app.Service.UpdateHitCountBG(code)
+		http.Redirect(w, r, originalUrl, http.StatusFound)
+		return
+	}
+
 	shortenedUrl, err := app.Models.URL.GetOne(code)
 	if err != nil {
 		app.errorJSON(w, errors.New("no result found"), http.StatusNotFound)
 		return
 	}
 
+	// storing cache in background
+	app.Service.StoreInRedisCacheBG(shortenedUrl.ShortCode, shortenedUrl.OriginalURL)
+
 	// Update hit count
-	app.updateHitCount(code)
+	app.Service.UpdateHitCountBG(shortenedUrl.ShortCode)
 
 	http.Redirect(w, r, shortenedUrl.OriginalURL, http.StatusFound)
-}
-
-func (app *Config) updateHitCount(c string) {
-	go func(c string) {
-		const maxRetries = 3
-		const retryDelay = 200 * time.Millisecond
-
-		for attempt := 1; attempt <= maxRetries; attempt++ {
-			err := app.Models.URL.IncrementHitCount(c)
-			if err == nil {
-				return
-			}
-
-			log.Printf("failed to update hit count (attempt %d/%d): %v", attempt, maxRetries, err)
-			if attempt < maxRetries {
-				time.Sleep(retryDelay)
-			}
-		}
-	}(c)
 }
