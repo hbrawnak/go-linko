@@ -3,8 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/go-chi/chi/v5"
 	"github.com/hbrawnak/go-linko/data"
 	"github.com/hbrawnak/go-linko/internal/service"
+	"log"
 	"net/http"
 	"net/url"
 )
@@ -66,4 +68,35 @@ func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 	payload.Data = shortUrlResp
 
 	_ = app.writeJSON(w, http.StatusOK, payload)
+}
+
+func (app *Config) HandleRedirect(w http.ResponseWriter, r *http.Request) {
+	code := chi.URLParam(r, "code")
+	log.Println(code)
+
+	// check empty
+	if code == "" {
+		app.errorJSON(w, errors.New("code is required"), http.StatusBadRequest)
+		return
+	}
+
+	// check base62
+	if !service.IsBase62(code) {
+		app.errorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
+		return
+	}
+
+	// check length
+	if !service.IsLengthOk(code) {
+		app.errorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
+		return
+	}
+
+	shortenedUrl, err := app.Models.URL.GetOne(code)
+	if err != nil {
+		app.errorJSON(w, errors.New("no result found"), http.StatusNotFound)
+		return
+	}
+
+	http.Redirect(w, r, shortenedUrl.OriginalURL, http.StatusFound)
 }
