@@ -6,16 +6,20 @@ services:
       context: .
       dockerfile: ./Dockerfile
     restart: always
+    container_name: 'go-linko'
     ports:
       - "8080:8080"
     deploy:
       mode: replicated
       replicas: 1
     environment:
-      DSN: "host=postgres port=5432 user=postgres password=password dbname=url_shortener sslmode=disable timezone=UTC connect_timeout=5"
+      - BASE_URL=http://localhost:8080
+      - DSN=host=postgres port=5432 user=postgres password=password dbname=url_shortener sslmode=disable timezone=UTC connect_timeout=5
+      - REDIS_DSN=redis://redis:6379
 
   postgres:
     image: 'postgres:14.2'
+    container_name: 'postgres'
     ports:
       - "5432:5432"
     restart: always
@@ -28,3 +32,16 @@ services:
       POSTGRES_DB: url_shortener
     volumes:
       - ./db-data/postgres/:/var/lib/postgresql/data
+
+  redis:
+    image: 'redis:7.2-alpine'
+    container_name: 'redis'
+    ports:
+      - "6379:6379"
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./db-data/redis/:/data
