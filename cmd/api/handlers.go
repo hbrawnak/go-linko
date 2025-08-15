@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type ShortenRequest struct {
@@ -72,7 +73,6 @@ func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 
 func (app *Config) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	code := chi.URLParam(r, "code")
-	log.Println(code)
 
 	// check empty
 	if code == "" {
@@ -98,5 +98,27 @@ func (app *Config) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update hit count
+	app.updateHitCount(code)
+
 	http.Redirect(w, r, shortenedUrl.OriginalURL, http.StatusFound)
+}
+
+func (app *Config) updateHitCount(c string) {
+	go func(c string) {
+		const maxRetries = 3
+		const retryDelay = 200 * time.Millisecond
+
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			err := app.Models.URL.IncrementHitCount(c)
+			if err == nil {
+				return
+			}
+
+			log.Printf("failed to update hit count (attempt %d/%d): %v", attempt, maxRetries, err)
+			if attempt < maxRetries {
+				time.Sleep(retryDelay)
+			}
+		}
+	}(c)
 }
