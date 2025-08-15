@@ -23,6 +23,7 @@ func (app *Config) routes() http.Handler {
 
 	mux.Get("/", app.HandleMain)
 	mux.Post("/shorten", app.HandleShorten)
+	mux.Get("/{code}", app.HandleRedirect)
 
 	return mux
 }
