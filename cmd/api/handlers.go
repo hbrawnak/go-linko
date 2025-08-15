@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
-	"github.com/hbrawnak/go-linko/data"
+	"github.com/hbrawnak/go-linko/internal/data"
 	"github.com/hbrawnak/go-linko/internal/service"
 	"log"
 	"net/http"

@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/hbrawnak/go-linko/data"
+	"github.com/hbrawnak/go-linko/internal/data"
 	"log"
 	"net/http"
 	"os"
