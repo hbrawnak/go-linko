@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/hbrawnak/go-linko/internal/data"
-	"github.com/hbrawnak/go-linko/internal/service"
+	"github.com/hbrawnak/go-linko/internal/utils"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,35 +16,35 @@ type ShortenRequest struct {
 }
 
 func (app *Config) HandleMain(w http.ResponseWriter, r *http.Request) {
-	payload := jsonResponse{
+	payload := utils.JsonResponse{
 		Error:   false,
 		Message: "Welcome to URL Shortener API",
 	}
 
-	_ = app.writeJSON(w, http.StatusOK, payload)
+	_ = app.Response.WriteJSON(w, http.StatusOK, payload)
 }
 
 func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 	var baseUrl = os.Getenv("BASE_URL")
 	var req ShortenRequest
 
-	if err := app.readJSON(w, r, &req); err != nil {
-		app.errorJSON(w, err, http.StatusBadRequest)
+	if err := app.Response.ReadJSON(w, r, &req); err != nil {
+		app.Response.ErrorJSON(w, err, http.StatusBadRequest)
 		return
 	}
 
 	if req.URL == "" {
-		app.errorJSON(w, errors.New("url is required"), http.StatusBadRequest)
+		app.Response.ErrorJSON(w, errors.New("url is required"), http.StatusBadRequest)
 		return
 	}
 
 	_, err := url.ParseRequestURI(req.URL)
 	if err != nil {
-		app.errorJSON(w, err, http.StatusBadRequest)
+		app.Response.ErrorJSON(w, err, http.StatusBadRequest)
 		return
 	}
 
-	code, err := service.GenerateShotCode(7)
+	code, err := app.Service.GenerateShotCode(7)
 
 	// 1. save data in db
 	u := data.URL{
@@ -52,9 +52,9 @@ func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 		OriginalURL: req.URL,
 	}
 
-	_, err = app.Models.URL.Insert(u)
+	_, err = app.Service.Models.URL.Insert(u)
 	if err != nil {
-		app.errorJSON(w, err, http.StatusInternalServerError)
+		app.Response.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -67,12 +67,12 @@ func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2 return response
-	var payload jsonResponse
+	var payload utils.JsonResponse
 	payload.Error = false
 	payload.Message = "URL Shortened"
 	payload.Data = shortUrlResp
 
-	_ = app.writeJSON(w, http.StatusOK, payload)
+	_ = app.Response.WriteJSON(w, http.StatusOK, payload)
 }
 
 func (app *Config) HandleRedirect(w http.ResponseWriter, r *http.Request) {
@@ -80,32 +80,32 @@ func (app *Config) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 
 	// check empty
 	if code == "" {
-		app.errorJSON(w, errors.New("code is required"), http.StatusBadRequest)
+		app.Response.ErrorJSON(w, errors.New("code is required"), http.StatusBadRequest)
 		return
 	}
 
 	// check base62
-	if !service.IsBase62(code) {
-		app.errorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
+	if !app.Service.IsBase62(code) {
+		app.Response.ErrorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
 		return
 	}
 
 	// check length
-	if !service.IsLengthOk(code) {
-		app.errorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
+	if !app.Service.IsLengthOk(code) {
+		app.Response.ErrorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
 		return
 	}
 
-	if originalUrl, err := app.Redis.Get(code); err == nil {
+	if originalUrl, err := app.Service.Redis.Get(code); err == nil {
 		// Update hit count
 		app.Service.UpdateHitCountBG(code)
 		http.Redirect(w, r, originalUrl, http.StatusFound)
 		return
 	}
 
-	shortenedUrl, err := app.Models.URL.GetOne(code)
+	shortenedUrl, err := app.Service.Models.URL.GetOne(code)
 	if err != nil {
-		app.errorJSON(w, errors.New("no result found"), http.StatusNotFound)
+		app.Response.ErrorJSON(w, errors.New("no result found"), http.StatusNotFound)
 		return
 	}
 
