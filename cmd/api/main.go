@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/hbrawnak/go-linko/internal/data"
 	"github.com/hbrawnak/go-linko/internal/database"
+	"github.com/hbrawnak/go-linko/internal/service"
 	"log"
 	"net/http"
 
@@ -16,8 +17,10 @@ import (
 const port = "8080"
 
 type Config struct {
-	DB     *sql.DB
-	Models data.Models
+	DB      *sql.DB
+	Models  data.Models
+	Redis   *database.RedisClient
+	Service service.Service
 }
 
 func main() {
@@ -28,9 +31,19 @@ func main() {
 		log.Panic("Failed to connect to database")
 	}
 
+	connectToRedis := database.ConnectToRedis()
+	if connectToRedis == nil {
+		log.Panic("Failed to connect to connectToRedis")
+	}
+
 	app := &Config{
 		DB:     db,
 		Models: data.New(db),
+		Redis:  connectToRedis,
+		Service: service.Service{
+			Models: data.New(db),
+			Redis:  *connectToRedis,
+		},
 	}
 
 	svr := http.Server{
