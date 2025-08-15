@@ -75,7 +75,7 @@ func (u *URL) IncrementHitCount(c string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	log.Printf("Increment hit count %s\n\n", c)
+	log.Printf("Increment hit count for code: %s\n", c)
 
 	query := `
 		UPDATE urls
