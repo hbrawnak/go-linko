@@ -1,10 +1,11 @@
-package main
+package handlers
 
 import (
 	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/hbrawnak/go-linko/internal/data"
+	"github.com/hbrawnak/go-linko/internal/service"
 	"github.com/hbrawnak/go-linko/internal/utils"
 	"net/http"
 	"net/url"
@@ -15,7 +16,21 @@ type ShortenRequest struct {
 	URL string `json:"url"`
 }
 
-func (app *Config) HandleMain(w http.ResponseWriter, r *http.Request) {
+// AppHandler holds all dependencies needed for HTTP handlers
+type AppHandler struct {
+	Service  *service.Service
+	Response *utils.Response
+}
+
+// NewHandler creates a new handler instance with dependencies
+func NewHandler(service *service.Service) *AppHandler {
+	return &AppHandler{
+		Service:  service,
+		Response: &utils.Response{},
+	}
+}
+
+func (app *AppHandler) HandleMain(w http.ResponseWriter, r *http.Request) {
 	payload := utils.JsonResponse{
 		Error:   false,
 		Message: "Welcome to URL Shortener API",
@@ -24,7 +39,7 @@ func (app *Config) HandleMain(w http.ResponseWriter, r *http.Request) {
 	_ = app.Response.WriteJSON(w, http.StatusOK, payload)
 }
 
-func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
+func (app *AppHandler) HandleShorten(w http.ResponseWriter, r *http.Request) {
 	var baseUrl = os.Getenv("BASE_URL")
 	var req ShortenRequest
 
@@ -75,7 +90,7 @@ func (app *Config) HandleShorten(w http.ResponseWriter, r *http.Request) {
 	_ = app.Response.WriteJSON(w, http.StatusOK, payload)
 }
 
-func (app *Config) HandleRedirect(w http.ResponseWriter, r *http.Request) {
+func (app *AppHandler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	code := chi.URLParam(r, "code")
 
 	// check empty

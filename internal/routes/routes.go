@@ -1,13 +1,15 @@
-package main
+package routes
 
 import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/hbrawnak/go-linko/internal/handlers"
 	"net/http"
 )
 
-func (app *Config) routes() http.Handler {
+// SetupRoutes creates and configures the router with all routes
+func SetupRoutes(handler *handlers.AppHandler) http.Handler {
 	mux := chi.NewRouter()
 
 	mux.Use(cors.Handler(cors.Options{
@@ -21,9 +23,9 @@ func (app *Config) routes() http.Handler {
 
 	mux.Use(middleware.Heartbeat("/ping"))
 
-	mux.Get("/", app.HandleMain)
-	mux.Post("/shorten", app.HandleShorten)
-	mux.Get("/{code}", app.HandleRedirect)
+	mux.Get("/", handler.HandleMain)
+	mux.Post("/shorten", handler.HandleShorten)
+	mux.Get("/{code}", handler.HandleRedirect)
 
 	return mux
 }

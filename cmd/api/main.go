@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"github.com/hbrawnak/go-linko/internal/data"
 	"github.com/hbrawnak/go-linko/internal/database"
+	"github.com/hbrawnak/go-linko/internal/handlers"
+	"github.com/hbrawnak/go-linko/internal/routes"
 	"github.com/hbrawnak/go-linko/internal/service"
-	"github.com/hbrawnak/go-linko/internal/utils"
 	"log"
 	"net/http"
 
@@ -18,9 +19,8 @@ import (
 const port = "8080"
 
 type Config struct {
-	DB       *sql.DB
-	Service  *service.Service
-	Response utils.Response
+	DB      *sql.DB
+	Service *service.Service
 }
 
 func NewConfig() *Config {
@@ -42,9 +42,8 @@ func NewConfig() *Config {
 	}
 
 	return &Config{
-		DB:       db,
-		Service:  svc,
-		Response: utils.Response{},
+		DB:      db,
+		Service: svc,
 	}
 }
 
@@ -52,9 +51,13 @@ func main() {
 	log.Printf("URL shortener service on port %s\n", port)
 
 	app := NewConfig()
+
+	// Create handler with service dependency
+	handler := handlers.NewHandler(app.Service)
+
 	svr := http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
-		Handler: app.routes(),
+		Handler: routes.SetupRoutes(handler),
 	}
 
 	// Starting server
