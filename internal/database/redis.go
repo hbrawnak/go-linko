@@ -15,6 +15,7 @@ type RedisClient struct {
 var RedisRetryCount int64
 
 const dbTimeout = time.Second * 3
+const defaultTTLRedis = 24 * time.Hour
 
 func ConnectToRedis() *RedisClient {
 	redisURL := os.Getenv("REDIS_DSN")
@@ -57,10 +58,15 @@ func (r *RedisClient) Get(key string) (string, error) {
 	return r.client.Get(ctx, key).Result()
 }
 
-func (r *RedisClient) Set(key string, value string, ttl time.Duration) error {
+func (r *RedisClient) Set(key string, value string, ttl ...time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
+	expire := defaultTTLRedis
+	if len(ttl) > 0 {
+		expire = ttl[0]
+	}
+
 	log.Println("Setting cache")
-	return r.client.Set(ctx, key, value, ttl).Err()
+	return r.client.Set(ctx, key, value, expire).Err()
 }
