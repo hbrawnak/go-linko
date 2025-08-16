@@ -14,6 +14,8 @@ type RedisClient struct {
 
 var RedisRetryCount int64
 
+const IncrKey = "url_counter"
+
 const dbTimeout = time.Second * 3
 const defaultTTLRedis = 24 * time.Hour
 
@@ -69,4 +71,17 @@ func (r *RedisClient) Set(key string, value string, ttl ...time.Duration) error 
 
 	log.Println("Setting cache")
 	return r.client.Set(ctx, key, value, expire).Err()
+}
+
+func (r *RedisClient) INCR() int64 {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	incr, err := r.client.Incr(ctx, IncrKey).Result()
+	if err != nil {
+		log.Println("Failed to incr url_counter")
+	}
+
+	log.Println("Successfully incr url_counter", incr)
+	return incr
 }
