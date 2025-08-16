@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 )
 
 type ShortenRequest struct {
@@ -67,14 +68,34 @@ func (app *AppHandler) HandleShorten(w http.ResponseWriter, r *http.Request) {
 		OriginalURL: req.URL,
 	}
 
-	_, err = app.Service.Models.URL.Insert(u)
-	if err != nil {
+	var wg sync.WaitGroup
+	chErr := make(chan error, 1)
+
+	//Storing in database using wait group
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		_, err = app.Service.Models.URL.Insert(u)
+		if err != nil {
+			chErr <- err
+		}
+	}()
+
+	// storing cache using wait group
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		//app.Service.StoreInRedisCacheBG(u.ShortCode, u.OriginalURL)
+		_ = app.Service.Redis.Set(u.ShortCode, u.OriginalURL)
+	}()
+
+	wg.Wait()
+	close(chErr)
+
+	if err := <-chErr; err != nil {
 		app.Response.ErrorJSON(w, err, http.StatusInternalServerError)
 		return
 	}
-
-	// storing cache in background
-	app.Service.StoreInRedisCacheBG(u.ShortCode, u.OriginalURL)
 
 	shortUrlResp := map[string]string{
 		"short_url": fmt.Sprintf("%s/%s", baseUrl, u.ShortCode),
