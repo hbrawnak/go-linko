@@ -60,7 +60,7 @@ func (app *AppHandler) HandleShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code, err := app.Service.GenerateShotCode(7)
+	code := app.Service.GenerateShortCode()
 
 	// 1. save data in db
 	u := data.URL{
