@@ -48,12 +48,12 @@ func processURLTask(task URLTask, service *service.Service) error {
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		_, err := service.Models.URL.Insert(u)
 		if err == nil {
-			log.Printf("Insert succeeded for shortcode=%s on attempt %d", u.ShortCode, attempt)
+			log.Printf("Insert succeeded in db for shortcode=%s on attempt %d", u.ShortCode, attempt)
 			err := service.Redis.HSet(task.ShortCode, fields.ToMap())
 			if err != nil {
 				return err
 			}
-			log.Printf("Data persisted successfully %s", u.ShortCode)
+			log.Printf("Data persisted successfully for both db and redis %s", u.ShortCode)
 			return nil
 		}
 
