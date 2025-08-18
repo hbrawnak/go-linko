@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/hbrawnak/go-linko/internal/data"
+	"github.com/hbrawnak/go-linko/internal/database"
 	"github.com/hbrawnak/go-linko/internal/service"
 	"github.com/hbrawnak/go-linko/internal/utils"
+	"github.com/hbrawnak/go-linko/internal/worker"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,17 +19,17 @@ type ShortenRequest struct {
 	URL string `json:"url"`
 }
 
-// AppHandler holds all dependencies needed for HTTP handlers
 type AppHandler struct {
-	Service  *service.Service
-	Response *utils.Response
+	Service      *service.Service
+	Response     *utils.Response
+	URLTaskQueue chan worker.URLTask
 }
 
-// NewHandler creates a new handler instance with dependencies
-func NewHandler(service *service.Service) *AppHandler {
+func NewHandler(service *service.Service, queue chan worker.URLTask) *AppHandler {
 	return &AppHandler{
-		Service:  service,
-		Response: &utils.Response{},
+		Service:      service,
+		Response:     &utils.Response{},
+		URLTaskQueue: queue,
 	}
 }
 
@@ -68,33 +70,25 @@ func (app *AppHandler) HandleShorten(w http.ResponseWriter, r *http.Request) {
 		OriginalURL: req.URL,
 	}
 
-	var wg sync.WaitGroup
-	chErr := make(chan error, 1)
-
-	//Storing in database using wait group
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		_, err = app.Service.Models.URL.Insert(u)
-		if err != nil {
-			chErr <- err
-		}
-	}()
+	fields := database.CachedURL{
+		URL:       req.URL,
+		Persisted: "0",
+	}
 
 	// storing cache using wait group
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		//app.Service.StoreInRedisCacheBG(u.ShortCode, u.OriginalURL)
-		_ = app.Service.Redis.Set(u.ShortCode, u.OriginalURL)
+		_ = app.Service.Redis.HSet(u.ShortCode, fields.ToMap())
 	}()
 
 	wg.Wait()
-	close(chErr)
 
-	if err := <-chErr; err != nil {
-		app.Response.ErrorJSON(w, err, http.StatusInternalServerError)
-		return
+	// Sending to worker queue to make db operations
+	app.URLTaskQueue <- worker.URLTask{
+		ShortCode:   u.ShortCode,
+		OriginalURL: u.OriginalURL,
 	}
 
 	shortUrlResp := map[string]string{
@@ -132,7 +126,7 @@ func (app *AppHandler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if originalUrl, err := app.Service.Redis.Get(code); err == nil {
+	if originalUrl, err := app.Service.Redis.HGet(code); err == nil {
 		// Update hit count
 		app.Service.UpdateHitCountBG(code)
 		http.Redirect(w, r, originalUrl, http.StatusFound)
@@ -145,8 +139,12 @@ func (app *AppHandler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	fields := database.CachedURL{
+		URL:       shortenedUrl.OriginalURL,
+		Persisted: "1",
+	}
 	// storing cache in background
-	app.Service.StoreInRedisCacheBG(shortenedUrl.ShortCode, shortenedUrl.OriginalURL)
+	app.Service.StoreInRedisCacheBG(shortenedUrl.ShortCode, fields.ToMap())
 
 	// Update hit count
 	app.Service.UpdateHitCountBG(shortenedUrl.ShortCode)
