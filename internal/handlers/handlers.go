@@ -126,7 +126,7 @@ func (app *AppHandler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if originalUrl, err := app.Service.Redis.HGet(code); err == nil {
+	if originalUrl, err := app.Service.Redis.HGet(code, "url"); err == nil {
 		// Update hit count
 		app.Service.UpdateHitCountBG(code)
 		http.Redirect(w, r, originalUrl, http.StatusFound)
