@@ -43,6 +43,24 @@ go run ./cmd/api
 
 The service will be available at `http://localhost:8080`
 
+## Makefile Commands
+
+The project includes a Makefile with convenient commands for development and deployment:
+
+```bash
+# Start Docker services in background
+make up
+
+# Stop Docker services
+make down
+
+# Build the application binary for Linux
+make build_app
+
+# Build and start Docker services (rebuilds if needed)
+make up_build
+```
+
 ## API Endpoints
 
 ### Shorten URL
