@@ -19,6 +19,18 @@ const IncrKey = "url_counter"
 const dbTimeout = time.Second * 3
 const defaultTTLRedis = 24 * time.Hour
 
+type CachedURL struct {
+	URL       string `json:"url"`
+	Persisted string `json:"persisted"`
+}
+
+func (c CachedURL) ToMap() map[string]string {
+	return map[string]string{
+		"url":       c.URL,
+		"persisted": c.Persisted,
+	}
+}
+
 func ConnectToRedis() *RedisClient {
 	redisURL := os.Getenv("REDIS_DSN")
 	var client *redis.Client
@@ -71,6 +83,28 @@ func (r *RedisClient) Set(key string, value string, ttl ...time.Duration) error 
 
 	log.Println("Setting cache")
 	return r.client.Set(ctx, key, value, expire).Err()
+}
+
+func (r *RedisClient) HSet(key string, values map[string]string, ttl ...time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	err := r.client.HSet(ctx, key, values).Err()
+	if err != nil {
+		log.Println("Failed to set cache")
+		return err
+	}
+
+	expire := defaultTTLRedis
+	if len(ttl) > 0 {
+		expire = ttl[0]
+	}
+	return r.client.Expire(ctx, key, expire).Err()
+}
+
+func (r *RedisClient) HGet(key string) (string, error) {
+	//TODO NEED TO COMPLETE
+	return "s", nil
 }
 
 func (r *RedisClient) INCR() int64 {
