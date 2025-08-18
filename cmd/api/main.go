@@ -8,6 +8,7 @@ import (
 	"github.com/hbrawnak/go-linko/internal/handlers"
 	"github.com/hbrawnak/go-linko/internal/routes"
 	"github.com/hbrawnak/go-linko/internal/service"
+	"github.com/hbrawnak/go-linko/internal/worker"
 	"log"
 	"net/http"
 
@@ -21,6 +22,7 @@ const port = "8080"
 type Config struct {
 	DB      *sql.DB
 	Service *service.Service
+	Queue   chan worker.URLTask
 }
 
 func NewConfig() *Config {
@@ -41,9 +43,13 @@ func NewConfig() *Config {
 		Redis:  *redisClient,
 	}
 
+	// Create task queue channel
+	taskQueue := make(chan worker.URLTask, 10)
+
 	return &Config{
 		DB:      db,
 		Service: svc,
+		Queue:   taskQueue,
 	}
 }
 
@@ -52,8 +58,11 @@ func main() {
 
 	app := NewConfig()
 
+	// Start worker goroutine to process tasks from queue
+	go worker.StartURLTaskWorker(app.Queue, app.Service)
+
 	// Create handler with service dependency
-	handler := handlers.NewHandler(app.Service)
+	handler := handlers.NewHandler(app.Service, app.Queue)
 
 	svr := http.Server{
 		Addr:    fmt.Sprintf(":%s", port),
