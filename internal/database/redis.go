@@ -91,7 +91,7 @@ func (r *RedisClient) HSet(key string, values map[string]string, ttl ...time.Dur
 
 	err := r.client.HSet(ctx, key, values).Err()
 	if err != nil {
-		log.Println("Failed to set cache")
+		log.Printf("[Redis:HSet] failed to set cache for key=%q field: %v", key, err)
 		return err
 	}
 
@@ -102,9 +102,21 @@ func (r *RedisClient) HSet(key string, values map[string]string, ttl ...time.Dur
 	return r.client.Expire(ctx, key, expire).Err()
 }
 
-func (r *RedisClient) HGet(key string) (string, error) {
-	//TODO NEED TO COMPLETE
-	return "s", nil
+func (r *RedisClient) HGet(key, field string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	val, err := r.client.HGet(ctx, key, field).Result()
+	if err != nil {
+		if err == redis.Nil {
+			log.Printf("[Redis:HGet] key=%q field=%q not found", key, field)
+		} else {
+			log.Printf("[Redis:HGet] failed for key=%q field=%q: %v", key, field, err)
+		}
+		return "", err
+	}
+
+	return val, nil
 }
 
 func (r *RedisClient) INCR() int64 {
