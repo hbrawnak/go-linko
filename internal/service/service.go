@@ -92,9 +92,9 @@ func (s *Service) UpdateHitCountBG(c string) {
 	}(c)
 }
 
-func (s *Service) StoreInRedisCacheBG(key string, value string) {
+func (s *Service) StoreInRedisCacheBG(key string, values map[string]string) {
 	go func() {
-		if err := s.Redis.Set(key, value, redisTTL); err != nil {
+		if err := s.Redis.HSet(key, values); err != nil {
 			log.Printf("failed to store in redis cache: %v", err)
 		}
 	}()
