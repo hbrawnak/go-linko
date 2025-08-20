@@ -26,6 +26,7 @@ func SetupRoutes(handler *handlers.AppHandler) http.Handler {
 	mux.Get("/", handler.HandleMain)
 	mux.Post("/shorten", handler.HandleShorten)
 	mux.Get("/{code}", handler.HandleRedirect)
+	mux.Get("/stats/{code}", handler.HandleStats)
 
 	return mux
 }
