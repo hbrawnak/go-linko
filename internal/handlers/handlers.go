@@ -18,6 +18,11 @@ type ShortenRequest struct {
 	URL string `json:"url"`
 }
 
+type StatsDataResp struct {
+	Code  string `json:"code"`
+	Count int64  `json:"count"`
+}
+
 type AppHandler struct {
 	Service      *service.Service
 	Response     *utils.Response
@@ -131,4 +136,28 @@ func (app *AppHandler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	app.Service.UpdateHitCountBG(shortenedUrl.ShortCode)
 
 	http.Redirect(w, r, shortenedUrl.OriginalURL, http.StatusFound)
+}
+
+func (app *AppHandler) HandleStats(w http.ResponseWriter, r *http.Request) {
+	code := chi.URLParam(r, "code")
+
+	// Validating short code
+	if err := utils.ValidateShortCode(code); err != nil {
+		app.Response.ErrorJSON(w, err, http.StatusBadRequest)
+		return
+	}
+
+	stats, err := app.Service.GetStats(code)
+	if err != nil {
+		app.Response.ErrorJSON(w, err, http.StatusNotFound)
+		return
+	}
+
+	payload := utils.JsonResponse{
+		Message: "Stats Data",
+		Error:   false,
+		Data:    stats,
+	}
+
+	_ = app.Response.WriteJSON(w, http.StatusOK, payload)
 }
