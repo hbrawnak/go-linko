@@ -10,7 +10,6 @@ import (
 	"github.com/hbrawnak/go-linko/internal/utils"
 	"github.com/hbrawnak/go-linko/internal/worker"
 	"net/http"
-	"net/url"
 	"os"
 	"sync"
 )
@@ -51,13 +50,7 @@ func (app *AppHandler) HandleShorten(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.URL == "" {
-		app.Response.ErrorJSON(w, errors.New("url is required"), http.StatusBadRequest)
-		return
-	}
-
-	_, err := url.ParseRequestURI(req.URL)
-	if err != nil {
+	if err := utils.ValidateOriginalURL(req.URL); err != nil {
 		app.Response.ErrorJSON(w, err, http.StatusBadRequest)
 		return
 	}
@@ -108,21 +101,9 @@ func (app *AppHandler) HandleShorten(w http.ResponseWriter, r *http.Request) {
 func (app *AppHandler) HandleRedirect(w http.ResponseWriter, r *http.Request) {
 	code := chi.URLParam(r, "code")
 
-	// check empty
-	if code == "" {
-		app.Response.ErrorJSON(w, errors.New("code is required"), http.StatusBadRequest)
-		return
-	}
-
-	// check base62
-	if !app.Service.IsBase62(code) {
-		app.Response.ErrorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
-		return
-	}
-
-	// check length
-	if !app.Service.IsLengthOk(code) {
-		app.Response.ErrorJSON(w, errors.New("code is invalid"), http.StatusBadRequest)
+	// Validating short code
+	if err := utils.ValidateShortCode(code); err != nil {
+		app.Response.ErrorJSON(w, err, http.StatusBadRequest)
 		return
 	}
 
