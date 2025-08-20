@@ -7,7 +7,7 @@ A high-performance URL shortener service built with Go, featuring Redis caching 
 - **Fast URL Shortening** - Base62 encoded short codes
 - **Redis Caching** - Hash-based caching for lightning-fast redirects
 - **Async Processing** - Background workers for database persistence
-- **Analytics** - Hit count tracking for shortened URLs
+- **Statistics API** - Comprehensive URL analytics with hit counts and timestamps
 - **PostgreSQL Storage** - Reliable persistent data storage
 - **Docker Support** - Full containerization with Docker Compose
 - **Input Validation** - URL format and code validation
@@ -104,6 +104,27 @@ GET /ping
 }
 ```
 
+### Get URL Statistics
+```http
+GET /stats/{code}
+```
+Retrieve comprehensive analytics for a shortened URL.
+
+**Response:**
+```json
+{
+  "error": false,
+  "message": "Stats Data",
+  "data": {
+    "code": "abc123",
+    "count": 42,
+    "update_at": "2025-08-20 13:45:30",
+    "created_at": "2025-08-18 10:15:22",
+    "original_url": "https://example.com"
+  }
+}
+```
+
 ## Architecture
 
 ### Caching Strategy
@@ -151,32 +172,6 @@ GET /ping
 ├── go.sum                  # Go module checksums
 └── urlShotenerApp          # Compiled binary
 ```
-
-## Future Modifications
-
-### Stats API Implementation
-**Planned Feature**: Comprehensive analytics and statistics tracking for shortened URLs.
-
-#### Implementation Plan:
-1. **New Database Table**: Create a dedicated stats table for time-based logging
-   - Track individual URL access events with timestamps
-   - Store metadata like referrer, user agent, IP address (anonymized)
-   - Index by short code and timestamp for efficient queries
-
-2. **Stats API Endpoints**:
-   ```http
-   GET /stats/{code}
-   ```
-   - Return comprehensive statistics for a specific short code
-   - Include metrics like total clicks, daily/weekly/monthly trends
-   - Provide time-series data for visualization
-
-
-#### Technical Considerations:
-- Use time-series optimized database schema
-- Implement efficient aggregation queries
-- Add caching layer for frequently requested stats
-- Consider data privacy and anonymization requirements
 
 ## License
 
