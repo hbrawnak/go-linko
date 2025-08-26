@@ -35,7 +35,6 @@ spec:
                 secretKeyRef:
                   name: go-linko-secret
                   key: REDIS_DSN
-
           ports:
             - containerPort: 8080
 ---
